@@ -1,0 +1,27 @@
+trading:
+  symbols: ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD"]
+  risk_per_trade: 0.01
+  max_positions: 5
+  max_daily_loss: 0.05
+  max_drawdown: 0.15
+
+learning:
+  state_size: 50
+  batch_size: 64
+  update_frequency: 30
+
+safety:
+  max_trades_per_hour: 20
+  max_trades_per_day: 50
+  cooldown_seconds: 60
+  kill_switch_drawdown: 0.20
+
+backup:
+  interval_hours: 6
+  keep_last: 10
+  path: "/backups"
+
+webhook:
+  enabled: true
+  port: 9000
+  secret: "your_secret_key"
