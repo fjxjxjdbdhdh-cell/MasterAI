@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
+"""
+run.py - ПОЛНЫЙ ФАЙЛ ЗАПУСКА MASTER AI
+"""
+
 import asyncio
 import os
 import signal
 import sys
-import yaml
+import json
 from dotenv import load_dotenv
 from datetime import datetime
 import logging
@@ -11,7 +15,7 @@ import logging
 # Загрузка .env
 load_dotenv()
 
-from ai_core_complete import MasterAI, get_mt5, EventBus, TradingEvent
+from ai_core_complete import MasterAI, get_mt5
 
 # Настройка логирования
 logging.basicConfig(
@@ -24,21 +28,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger("run")
 
+# Глобальная переменная для экземпляра AI
+_ai_instance = None
+
 class AILauncher:
     def __init__(self):
         self.ai = None
         self.running = True
         
     async def start(self):
-        # Получаем символы
+        global _ai_instance
+        
+        # Получаем символы из .env или стандартные
         symbols = os.getenv("SYMBOLS", "EURUSD,GBPUSD,USDJPY,XAUUSD").split(",")
         
         logger.info(f"📊 Торгуемые символы: {symbols}")
         
         # Создаём AI
         self.ai = MasterAI(symbols, db_path="trading.db")
+        _ai_instance = self.ai
         
-        # Подключаемся к MT5
+        # Подключаемся к MT5 (если указан логин)
         login = int(os.getenv("MT5_LOGIN", 0))
         
         if login > 0:
@@ -53,7 +63,7 @@ class AILauncher:
         else:
             logger.warning("⚠️ MT5 логин не указан, работа в симуляционном режиме")
         
-        # Настройка параметров
+        # Настройка параметров из .env
         if os.getenv("RISK_PER_TRADE"):
             self.ai.risk_engine.risk_per_trade = float(os.getenv("RISK_PER_TRADE"))
         if os.getenv("MAX_POSITIONS"):
@@ -107,6 +117,43 @@ class AILauncher:
         
         await self.ai.shutdown()
         logger.info("✅ AI остановлен")
+
+# ============================================================
+# ФУНКЦИИ ДЛЯ API (вызов из Docker контейнера)
+# ============================================================
+
+async def send_message(message: str) -> str:
+    """Для приёма команд из API"""
+    global _ai_instance
+    if _ai_instance:
+        result = await _ai_instance.chat(message, {})
+        return result.get("reply", "Нет ответа")
+    return "AI не инициализирован"
+
+def get_status_json() -> str:
+    """Получить статус в JSON"""
+    global _ai_instance
+    if _ai_instance:
+        return json.dumps(_ai_instance.get_status())
+    return json.dumps({"error": "AI not initialized"})
+
+def start_trading():
+    """Запустить торговлю"""
+    global _ai_instance
+    if _ai_instance:
+        _ai_instance.autotrade_running = True
+        logger.info("✅ Торговля запущена через API")
+
+def stop_trading():
+    """Остановить торговлю"""
+    global _ai_instance
+    if _ai_instance:
+        _ai_instance.autotrade_running = False
+        logger.info("⏸️ Торговля остановлена через API")
+
+# ============================================================
+# ЗАПУСК
+# ============================================================
 
 async def main():
     print("""
