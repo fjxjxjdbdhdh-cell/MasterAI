@@ -26,6 +26,8 @@ from enum import Enum, auto
 from abc import ABC, abstractmethod
 
 import numpy as np
+import os
+from dotenv import load_dotenv
 
 # Настройка логирования
 logging.basicConfig(
